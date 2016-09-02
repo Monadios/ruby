@@ -1,4 +1,4 @@
-class Player
+class Entity
   attr_accessor :bank, :name
 
   def initialize(name)
@@ -7,12 +7,28 @@ class Player
   end
 
   def player_turn
+    raise NotImplementedError
+  end
+
+  def roll_dice
+    return 1 + rand(6)
+  end
+
+  def want_to_move
+    raise NotImplementedError
+  end
+  protected :roll_dice
+end
+
+class Player < Entity
+
+  def player_turn
     temp_sum = 0
     dice = 0
     while true
       input = gets.chomp
      
-      if validate_input input
+      if want_to_move input
         dice = roll_dice
         puts "Du rullede #{dice}"
 
@@ -32,25 +48,14 @@ class Player
     puts "#{@name}'s sum er nu #{@bank}\n"
   end
 
-  def roll_dice
-    return 1 + rand(6)
-  end
-
-  private :roll_dice
-  
-  def validate_input(input)
+  def want_to_move(input)
     valid_inputs = ["yes", "y", "ja"]
     return valid_inputs.include? input 
   end
 end
 
-class AI
-  attr_accessor :bank, :name
 
-  def initialize(name)
-    @bank = 0
-    @name = name
-  end
+class AI < Entity
 
   def player_turn
     temp_sum = 0
@@ -79,12 +84,6 @@ class AI
     end
     puts "Computeren \"#{@name}\"'s sum er nu #{@bank}\n"
   end
-
-  def roll_dice
-    return 1 + rand(6)
-  end
-
-  private :roll_dice
 
   def want_to_move(temp_sum)
     rand(2) == 0
@@ -134,4 +133,3 @@ p1 = Player.new "G"
 p2 = AI.new "HAL"
 
 board = Board.new p1, p2
-board.play
