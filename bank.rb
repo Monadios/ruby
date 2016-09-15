@@ -1,26 +1,11 @@
-class Entity
+# -*- coding: utf-8 -*-
+class Player
   attr_accessor :bank, :name
 
   def initialize(name)
     @bank = 0
     @name = name
   end
-
-  def player_turn
-    raise NotImplementedError
-  end
-
-  def roll_dice
-    return 1 + rand(6)
-  end
-
-  def want_to_move
-    raise NotImplementedError
-  end
-  protected :roll_dice
-end
-
-class Player < Entity
 
   def player_turn
     temp_sum = 0
@@ -48,16 +33,28 @@ class Player < Entity
     puts "#{@name}'s sum er nu #{@bank}\n"
   end
 
+  def roll_dice
+    return 1 + rand(6)
+  end
+
+  private :roll_dice
+  
   def want_to_move(input)
-    valid_inputs = ["yes", "y", "ja"]
-    return valid_inputs.include? input 
+    valid_pos = ["yes", "y", "ja"] #all the "yes" values
+    return valid_pos.include? input
   end
 end
 
+class AI
+  attr_accessor :bank, :name, :iq
 
-class AI < Entity
+  def initialize(name, iq)
+    @bank = 0
+    @name = name
+    @iq = iq
+  end
 
-  def player_turn
+  def player_turn(print=true)
     temp_sum = 0
     dice = 0
     avg_dice = 0
@@ -85,13 +82,24 @@ class AI < Entity
     puts "Computeren \"#{@name}\"'s sum er nu #{@bank}\n"
   end
 
+  def roll_dice
+    return 1 + rand(6)
+  end
+
+  private :roll_dice
+
   def want_to_move(temp_sum)
-    rand(2) == 0
-    #TODO
-    # add better strategy
-    # algorithm = while risk < reward
-    # risk = turn/6
-    # reward = average reward
+    should_stop = 0
+    if iq == :high then should_stop = case temp_sum #the chance of stopping the turn
+                                  when (0..5) then 6
+                                  when (5..10) then 4
+                                  when (10..20) then 3
+                                  else 2
+                                  end
+    elsif iq == :low
+      should_stop = 3
+    end
+    return rand(should_stop) != 0
   end
 
   protected :want_to_move
@@ -99,12 +107,15 @@ class AI < Entity
 end
 
 class Board
-  attr_accessor :cur_player, :p1, :p2
+  attr_accessor :cur_player, :cur_round, :rounds, :p1, :p2, :state
 
   def initialize(p1, p2)
     @p1 = p1
     @p2 = p2
     @cur_player = (rand(2) == 0 ? @p1 : @p2)
+    @state = { "p1" => {}, "p2" => {} }
+    @rounds = rounds
+    @cur_round = 0
   end
 
   def show_cur_player
@@ -129,7 +140,35 @@ class Board
   end
 end
 
-p1 = Player.new "G"
-p2 = AI.new "HAL"
+class Menu
+  attr_accessor :options, :range_opts
 
-board = Board.new p1, p2
+  def initialize(options)
+    @options = options
+  end
+
+  def show_options()
+    @options.each_pair do |k,v|
+      puts "#{k}: #{v}"
+    end
+  end
+
+  def select_options(sym)
+    return :not_found unless @options.has_key? sym
+    return @options.assoc sym
+  end
+  
+  def options=(opts)
+    @options = opts
+  end
+end
+
+def main
+  options = {
+             :aivai => "AI vs AI",
+             :pvp   => "Player vs Player",
+             :pvai  => "Player vs AI"
+            }
+  menu = Menu.new(options)
+  menu.show_options
+end
