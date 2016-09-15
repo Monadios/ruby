@@ -12,7 +12,7 @@ class Player
     dice = 0
     while true
       input = gets.chomp
-     
+      
       if want_to_move input
         dice = roll_dice
         puts "Du rullede #{dice}"
@@ -91,11 +91,11 @@ class AI
   def want_to_move(temp_sum)
     should_stop = 0
     if iq == :high then should_stop = case temp_sum #the chance of stopping the turn
-                                  when (0..5) then 6
-                                  when (5..10) then 4
-                                  when (10..20) then 3
-                                  else 2
-                                  end
+                                      when (0..5) then 6
+                                      when (5..10) then 4
+                                      when (10..20) then 3
+                                      else 2
+                                      end
     elsif iq == :low
       should_stop = 3
     end
@@ -103,27 +103,26 @@ class AI
   end
 
   protected :want_to_move
-    
+  
 end
 
 class Board
-  attr_accessor :cur_player, :cur_round, :rounds, :p1, :p2, :state
+  attr_accessor :cur_player, :players, :menu
 
-  def initialize(p1, p2)
-    @p1 = p1
-    @p2 = p2
-    @cur_player = (rand(2) == 0 ? @p1 : @p2)
-    @state = { "p1" => {}, "p2" => {} }
-    @rounds = rounds
-    @cur_round = 0
+  def initialize(players, menu)
+    @menu = menu
+    @players = @menu.start_menu
+    @cur_player = players[rand(players.length)]
   end
-
+  
   def show_cur_player
     puts @cur_player.name
   end
-
+  
   def switch_player()
-    @cur_player = (@cur_player == p1 ? p2 : p1)
+    temp = @players.pop # remove the current player
+    @players.unshift temp #prepend player to list
+    @cur_player = @players[0]
   end
   
   def play
@@ -141,7 +140,7 @@ class Board
 end
 
 class Menu
-  attr_accessor :options, :range_opts
+  attr_accessor :options
 
   def initialize(options)
     @options = options
@@ -153,22 +152,61 @@ class Menu
     end
   end
 
+  def create_option(str)
+    return str.downcase.gsub(/[^a-z0-9\s]/i, "").gsub(/\s+/, "_").to_sym
+  end
+
+  
   def select_options(sym)
+    players = []
     return :not_found unless @options.has_key? sym
-    return @options.assoc sym
+    mode = (@options.assoc sym)[0]
+
+    case mode
+    when :aivai
+      players[0] = AI.new("HAL", :high)
+      players[0] = AI.new("Marvin", :low)
+    when :pvp
+      puts "Spiller 1 navn?"
+      players[0] = Player.new(gets.chomp)
+      puts "Spiller 2 navn?"
+      players[1] = Player.new(gets.chomp)
+    when :pvai
+      puts "Spiller navn?"
+      players[0] = Player.new(gets.chomp)
+      players[1] = AI.new("HAL", :high)
+    when :exit
+      Kernel.exit(0)
+    end
+
+    return players
   end
   
   def options=(opts)
     @options = opts
   end
+
+  def start_menu
+    input = ""
+    while true
+      show_options
+      input = create_option gets.chomp
+      selection = select_options(input)
+      return selection if selection != :not_found
+    end
+  end
 end
 
+
 def main
-  options = {
-             :aivai => "AI vs AI",
-             :pvp   => "Player vs Player",
-             :pvai  => "Player vs AI"
-            }
+  options =  {
+              :aivai => "AI vs AI",
+              :pvp   => "Player vs Player",
+              :pvai  => "Player vs AI",
+              :exit => "Exit"
+             }
+   
   menu = Menu.new(options)
-  menu.show_options
+  board = Board.new(menu)
+  board.play
 end
