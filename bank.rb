@@ -48,10 +48,10 @@ end
 class AI
   attr_accessor :bank, :name, :iq
 
-  def initialize(name, iq)
+  def initialize(name, iq=nil)
     @bank = 0
     @name = name
-    @iq = iq
+    @iq = iq || [:low, :high].sample # randomly select intelligence if nil
   end
 
   def player_turn
@@ -108,10 +108,10 @@ end
 class Board
   attr_accessor :cur_player, :players, :menu
 
-  def initialize(players, menu)
+  def initialize(menu)
     @menu = menu
     @players = @menu.start_menu
-    @cur_player = players[rand(players.length)]
+    @cur_player = @players[rand(players.length)]
   end
   
   def show_cur_player
@@ -139,15 +139,69 @@ class Board
 end
 
 class Menu
-  attr_accessor :options
+  class Option
+    attr_accessor :namepair, :on_select
 
-  def initialize(options)
-    @options = options
+    def initialize (namepair , on_select)
+      @namepair = namepair
+      @on_select = on_select
+    end
+
+    def ask(prompt)
+      print prompt
+      return gets.chomp.strip
+    end
+    
+    def select
+      on_select.call
+    end
   end
 
+  class AIVAI < Option
+    def initialize
+      super({aivai: "AI vs AI"},
+            lambda do
+              return AI.new("HAL") , AI.new("Marvin")
+            end)
+    end
+  end
+
+  class PVP < Option
+    def initialize
+      super({pvp: "Player vs Player"},
+            lambda do
+              return Player.new(ask("Player 1 name?")),
+              Player.new(ask("Player 2 name?"))
+            end)
+    end
+  end
+
+  class PVAI < Option
+    def initialize
+      super({pvai: "Player vs AI"},
+            lambda do
+              return AI.new("HAL"), Player.new(ask("Player name?"))
+            end)
+    end
+  end
+
+  class EXIT < Option
+    def initialize
+      super({exit: "Exit"},
+            lambda {Kernel.exit(0)})
+    end
+  end
+  
+  attr_accessor :options
+
+  def initialize()
+    @options = [AIVAI.new, PVP.new, PVAI.new]
+  end
+  
   def show_options
-    @options.each_pair do |k, v|
-      puts "#{k}: #{v}"
+    @options.each do |op|
+      pair = op.namepair.first
+      puts "#{pair[0]}: #{pair[1]}"
     end
   end
 
@@ -155,32 +209,9 @@ class Menu
     str.downcase.gsub(/[^a-z0-9\s]/i, '').gsub(/\s+/, '_').to_sym
   end
 
-  
-  def select_options(sym)
-    players = []
-    return :not_found unless @options.key? sym
-    mode = (@options.assoc sym)[0]
-
-    # Replace manual typing with fields
-    
-    case mode
-    when :aivai
-      players[0] = AI.new('HAL', :high)
-      players[0] = AI.new('Marvin', :low)
-    when :pvp
-      puts 'Spiller 1 navn?'
-      players[0] = Player.new(gets.chomp)
-      puts 'Spiller 2 navn?'
-      players[1] = Player.new(gets.chomp)
-    when :pvai
-      puts 'Spiller navn?'
-      players[0] = Player.new(gets.chomp)
-      players[1] = AI.new('HAL', :high)
-    when :exit
-      Kernel.exit(0)
-    end
-
-    return players
+  def handle_selection(sym)
+    choice = @options.find {|op| op.namepair.key? sym} || EXIT.new # Fix this
+    choice.select
   end
   
   def options=(opts)
@@ -191,7 +222,7 @@ class Menu
     loop do
       show_options
       input = create_option gets.chomp
-      selection = select_options(input)
+      selection = handle_selection(input)
       return selection if selection != :not_found
     end
   end
@@ -199,14 +230,7 @@ end
 
 
 def main
-  options = {
-             aivai: 'AI vs AI',
-             pvp:   'Player vs Player',
-             pvai:  'Player vs AI',
-             exit:  'Exit'
-            }
-   
-  menu = Menu.new(options)
-  board = Board.new(menu)
+  menu = Menu.new()
+  board = Board.new(players, menu) 
   board.play
 end
