@@ -1,108 +1,121 @@
 # -*- coding: utf-8 -*-
+class Decision
+  attr_reader :actions, :accept_vals, :key, :val
+  attr_accessor :choice
+
+  def initialize()
+    @actions = {'g' => :guess,
+                's' => :ask,
+                'q' => :quit
+               }
+
+    @accept_vals = @actions.keys.join(",").upcase
+  end
+
+  def make_decision(input)
+    @actions.fetch(input) do
+      invalid_choice
+      :not_found
+    end
+  end
+
+  def invalid_choice
+    puts "Svaret skal være en af de følgende: #{@accept_vals}"
+  end
+end
 
 class Player
-  attr_accessor :hand, :num_cards, :name
-  attr_reader :asked
+  attr_accessor :hand, :num_cards, :asked
+  attr_reader :decision
 
-  def initialize(name, hand, game_cards)
-    @name = name
+  def initialize(hand, game_cards)
+    @hand = hand
+    @game_cards = game_cards
+    @asked = {}
+    @decision = Decision.new
+  end
+
+  def turn(state)
+    puts "Dine kort #{@hand.join(',')}"
+    puts 'Vil du spørge eller gætte?'
+    input = String(gets.chomp.strip)
+
+    until (choice = @decision.make_decision input) != :not_found
+      @decision.invalid_choice
+      input = gets.chomp.strip
+    end
+
+    card = Integer(gets.chomp.strip) unless choice == :quit
+
+    @decision.choice = { choice => card }
+    return @decision
+  end
+
+  def has_card? card
+    hand.include? card
+  end
+end
+
+class AI
+  attr_accessor :asked, :hand, :num_cards
+
+  def initialize(hand, game_cards)
     @hand = hand
     @game_cards = game_cards
     @asked = {}
   end
 
-  def turn
-    puts 'Vil du spørge eller gætte?'
-    input = user_input_type(String)
-
-    until (choice = ask_or_guess input) != :not_found
-      puts "Svaret skal være enten 'G', 'S' eller 'Q'"
-      input = gets.chomp.strip
-    end
-
-    card = user_input_type(Fixnum) unless choice == :quit
-
-    { choice => card }
+  def turn(state)
+    return { choice => card }
   end
 
-  def ask_or_guess(input)
-    case input.downcase
-    when 'g'
-      :guess
-    when 's'
-      :ask
-    when 'q'
-      :quit
-    else
-      :not_found
-    end
+  def has_card? card
+    hand.include? card
   end
-
-  #This is for getting user input of a certain type
-  def user_input_type(type)
-    begin
-      fns = {
-             Fixnum => ->(x) { Integer(x) },
-             String => ->(x) { String(x)  },
-             Symbol => ->(x) { x.split.join("_").intern}
-            }
-
-      fn = fns[type]
-
-      fn.call(gets.chomp.strip)
-
-    rescue
-      puts "Input skal være af typen #{type}"
-      retry
-    end
-  end
-
- 
 end
 
-
 class Board
-  attr_accessor :p1, :p2, :cards, :facedown
+  attr_accessor :p1, :p2, :cards, :downcard
+  attr_reader :cur_player, :num_cards
 
-  attr_reader :cur_player
+  def initialize(num_cards=11)
+    num_cards+=1 unless (num_cards-1).even?
 
-  def initialize
-    @cards = (1..11).to_a # TODO: fix magic numbers
-    hand1, hand2, @facedown = @cards.shuffle.each_slice(11 / 2).to_a
-    @facedown = @facedown[0]
-    @p1 = Player.new('A', hand1, 11)
-    @p2 = Player.new('Computer', hand2, 11)
-    @cur_player = (rand(2).zero? ? @p1 : @p2)
+    @num_cards = num_cards
+    @cards = (1..@num_cards).to_a # TODO: fix magic numbers
+    hand1, hand2, @downcard = @cards.shuffle.each_slice(@num_cards / 2).to_a
+    @downcard = @downcard[0]
+    @p1 = Player.new(hand1, num_cards)
+    @p2 = AI.new(hand2, 11)
+    @cur_player,@other_player = [@p1,@p2].shuffle
   end
 
   def switch_player
-    @cur_player = (@cur_player == p1 ? p2 : p1)
+    @cur_player,@other_player = @other_player,@cur_player
   end
 
   def play
     loop do
-      output_state @cur_player
-      p_round = @cur_player.turn
-      type = p_round.keys.first
-      value = p_round.values.first
-      if type == :guess
-        if value == @facedown
-          winner(@cur_player)
-          quit
-        else
-          loser(@cur_player)
-          quit
-        end
+      resp = @cur_player
+      case resp
+       when :ask
+        @cur_player.asked[key] = @other_player.has_card? val
+        puts @cur_player.asked
+      when :quit
+        quit
+      when :guess
       end
     end
   end
 
   def winner(player)
     puts "#{player.name.capitalize} vandt!"
+    quit
   end
 
   def loser(player)
     puts "#{player.name.capitalize} tabte!"
+    quit
   end
 
   def output_state(player)
@@ -110,14 +123,9 @@ class Board
   end
 
   def quit
-    puts "Spillet lukkes ned nu"
+    puts 'Spillet lukkes ned nu'
     Kernel.exit(0)
   end
 
   private :switch_player, :winner, :output_state, :quit
-end
-
-def main
-  # Dine kort
-  # Resten af kort
 end
